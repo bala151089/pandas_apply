@@ -1,44 +1,10 @@
-
-
-{
-    "logic_blocks": [
-        {
-            "block_type": "IF",
-            "condition_operator": "AND",
-            "rules": [
-                {"variable": "abc","operator":">","value":"123",
-"segment": "wind_1"
-                },
-                {"variable": "xyz","operator": ">","value": "123",
-"segment": "wind_2"
-                }
-            ]
-        },
-         {
-            "block_type": "IF",
-            "condition_operator": "OR",
-            "rules": [
-                {"variable": "abc","operator":"<","value":"123",
-"segment": "wind_1"
-                },
-                {"variable": "xyz","operator": "<","value": "123",
-"segment": "wind_2"
-                }
-            ]
-        },
-        {
-            "block_type": "ELSE",
-            "segment": "wind_2"
-            
-        }
-    ]
-}
 // import pandas as pd
-// import numpy as np
+// import operator
+// import pandas as pd
 // import operator
 
 // def apply_logic_blocks(df: pd.DataFrame, logic_config: dict, output_col="segment"):
-//     # Mapping operators
+
 //     ops = {
 //         ">": operator.gt,
 //         "<": operator.lt,
@@ -48,61 +14,117 @@
 //         "!=": operator.ne
 //     }
 
-//     # Initialize output column
 //     df[output_col] = None
 
-//     # Track rows already assigned (for IF → ELIF behavior)
-//     assigned_mask = pd.Series(False, index=df.index)
+//     def evaluate_rule(rule):
+//         col = rule["variable"]
+//         op = rule["operator"]
+//         val = rule["value"]
 
+//         # Numeric
+//         if op in [">", "<", ">=", "<="]:
+//             series = pd.to_numeric(df[col], errors='coerce')
+//             val = float(val)
+//         else:
+//             # String
+//             series = df[col].fillna("").astype(str).str.lower()
+//             val = str(val).lower()
+
+//         return ops[op](series, val)
+
+//     def build_mask(rules):
+//         masks = [evaluate_rule(rule) for rule in rules]
+
+//         final_mask = masks[0]
+
+//         for i in range(len(rules) - 1):
+//             logic = rules[i].get("logic", "AND").upper()
+
+//             if logic == "AND":
+//                 final_mask &= masks[i + 1]
+//             elif logic == "OR":
+//                 final_mask |= masks[i + 1]
+//             else:
+//                 raise ValueError(f"Unsupported logic: {logic}")
+
+//         return final_mask
+
+//     # Process blocks
 //     for block in logic_config["logic_blocks"]:
-//         block_type = block["block_type"]
 
-//         # ELSE block
-//         if block_type == "ELSE":
-//             df.loc[~assigned_mask, output_col] = block["segment"]
+//         if block["block_type"] != "IFELSE":
 //             continue
 
-//         rules = block["rules"]
-//         condition_operator = block.get("condition_operator", "AND")
+//         assigned_mask = pd.Series(False, index=df.index)
 
-//         masks = []
+//         # ✅ IF
+//         if_block = block.get("if")
+//         if if_block:
+//             mask = build_mask(if_block["rules"])
+//             df.loc[mask, output_col] = if_block["segment"]
+//             assigned_mask |= mask
 
-//         for rule in rules:
-//             col = rule["variable"]
-//             op = rule["operator"]
-//             val = rule["value"]
+//         # ✅ ELIF
+//         for elif_block in block.get("elif", []):
+//             mask = build_mask(elif_block["rules"])
+//             mask = mask & (~assigned_mask)
 
-//             # Convert value type if needed
-//             try:
-//                 val = float(val)
-//                 series = pd.to_numeric(df[col], errors='coerce')
-//             except:
-//                 series = df[col]
+//             df.loc[mask, output_col] = elif_block["segment"]
+//             assigned_mask |= mask
 
-//             mask = ops[op](series, val)
-//             masks.append(mask)
-
-//         # Combine masks
-//         if condition_operator == "AND":
-//             final_mask = masks[0]
-//             for m in masks[1:]:
-//                 final_mask &= m
-//         elif condition_operator == "OR":
-//             final_mask = masks[0]
-//             for m in masks[1:]:
-//                 final_mask |= m
-//         else:
-//             raise ValueError(f"Unsupported condition_operator: {condition_operator}")
-
-//         # Apply only to unassigned rows (IF → ELIF behavior)
-//         final_mask = final_mask & (~assigned_mask)
-
-//         # Assign segment (take first rule's segment or customize)
-//         segment_value = rules[0].get("segment")
-
-//         df.loc[final_mask, output_col] = segment_value
-
-//         # Update assigned mask
-//         assigned_mask |= final_mask
+//         # ✅ ELSE
+//         else_block = block.get("else")
+//         if else_block:
+//             df.loc[~assigned_mask, output_col] = else_block["segment"]
 
 //     return df
+
+// df = pd.DataFrame({
+//     "abc": [80, 130, 160, 200, 90],
+//     "xyz": [40, 140, 160, 30, 200],
+//     "city": ["chennai", "mumbai", "delhi", "chennai", "bangalore"]
+// })
+
+// print(df)
+// logic_config = {
+//     "logic_blocks": [
+//         {
+//             "block_type": "IFELSE",
+//             "if": {
+//                 "rules": [
+//                     {"variable": "abc", "operator": ">", "value": "150", "logic": "AND"},
+//                     {"variable": "xyz", "operator": ">", "value": "150"}
+//                 ],
+//                 "segment": "very_high"
+//             },
+//             "elif": [
+//                 {
+//                     "rules": [
+//                         {"variable": "abc", "operator": ">", "value": "120", "logic": "AND"},
+//                         {"variable": "xyz", "operator": ">", "value": "120"}
+//                     ],
+//                     "segment": "high"
+//                 },
+//                 {
+//                     "rules": [
+//                         {"variable": "city", "operator": "==", "value": "chennai", "logic": "OR"},
+//                         {"variable": "abc", "operator": "<", "value": "100"}
+//                     ],
+//                     "segment": "medium"
+//                 },
+//                 {
+//                     "rules": [
+//                         {"variable": "xyz", "operator": "<", "value": "50"}
+//                     ],
+//                     "segment": "low_xyz"
+//                 }
+//             ],
+//             "else": {
+//                 "segment": "default"
+//             }
+//         }
+//     ]
+// }
+// result = apply_logic_blocks(df, logic_config)
+
+// print(result)
