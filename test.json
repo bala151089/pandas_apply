@@ -1,0 +1,33 @@
+{
+    "logic_blocks": [
+        {
+            "block_type": "IF",
+            "condition_operator": "AND",
+            "rules": [
+                {"variable": "abc","operator":">","value":"123",
+"segment": "wind_1"
+                },
+                {"variable": "xyz","operator": ">","value": "123",
+"segment": "wind_2"
+                }
+            ]
+        },
+         {
+            "block_type": "IF",
+            "condition_operator": "OR",
+            "rules": [
+                {"variable": "abc","operator":"<","value":"123",
+"segment": "wind_1"
+                },
+                {"variable": "xyz","operator": "<","value": "123",
+"segment": "wind_2"
+                }
+            ]
+        },
+        {
+            "block_type": "ELSE",
+            "segment": "wind_2"
+            
+        }
+    ]
+}
