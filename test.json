@@ -1,9 +1,7 @@
-// import pandas as pd
-// import operator
-// import pandas as pd
+import pandas as pd
 // import operator
 
-// def apply_logic_blocks(df: pd.DataFrame, logic_config: dict, output_col="segment"):
+// def apply_multi_logic(df: pd.DataFrame, config_list: list):
 
 //     ops = {
 //         ">": operator.gt,
@@ -13,8 +11,6 @@
 //         "==": operator.eq,
 //         "!=": operator.ne
 //     }
-
-//     df[output_col] = None
 
 //     def evaluate_rule(rule):
 //         col = rule["variable"]
@@ -34,7 +30,6 @@
 
 //     def build_mask(rules):
 //         masks = [evaluate_rule(rule) for rule in rules]
-
 //         final_mask = masks[0]
 
 //         for i in range(len(rules) - 1):
@@ -44,38 +39,48 @@
 //                 final_mask &= masks[i + 1]
 //             elif logic == "OR":
 //                 final_mask |= masks[i + 1]
-//             else:
-//                 raise ValueError(f"Unsupported logic: {logic}")
 
 //         return final_mask
 
-//     # Process blocks
-//     for block in logic_config["logic_blocks"]:
+//     # 🔥 Loop each column config
+//     for item in config_list:
+//         for col_name, logic_data in item.items():
 
-//         if block["block_type"] != "IFELSE":
-//             continue
+//             df[col_name] = None
 
-//         assigned_mask = pd.Series(False, index=df.index)
+//             for block in logic_data.get("logic_blocks", []):
 
-//         # ✅ IF
-//         if_block = block.get("if")
-//         if if_block:
-//             mask = build_mask(if_block["rules"])
-//             df.loc[mask, output_col] = if_block["segment"]
-//             assigned_mask |= mask
+//                 block_type = block.get("block_type", "").upper()
 
-//         # ✅ ELIF
-//         for elif_block in block.get("elif", []):
-//             mask = build_mask(elif_block["rules"])
-//             mask = mask & (~assigned_mask)
+//                 # ✅ NO CONDITION
+//                 if block_type == "NOCONDITION":
+//                     df[col_name] = block.get("segment")
+//                     continue
 
-//             df.loc[mask, output_col] = elif_block["segment"]
-//             assigned_mask |= mask
+//                 # ✅ IFELSE
+//                 if block_type == "IFELSE":
 
-//         # ✅ ELSE
-//         else_block = block.get("else")
-//         if else_block:
-//             df.loc[~assigned_mask, output_col] = else_block["segment"]
+//                     assigned_mask = pd.Series(False, index=df.index)
+
+//                     # IF
+//                     if_block = block.get("if")
+//                     if if_block:
+//                         mask = build_mask(if_block["rules"])
+//                         df.loc[mask, col_name] = if_block["segment"]
+//                         assigned_mask |= mask
+
+//                     # ELIF (multiple)
+//                     for elif_block in block.get("elif", []):
+//                         mask = build_mask(elif_block["rules"])
+//                         mask = mask & (~assigned_mask)
+
+//                         df.loc[mask, col_name] = elif_block["segment"]
+//                         assigned_mask |= mask
+
+//                     # ELSE
+//                     else_block = block.get("else")
+//                     if else_block:
+//                         df.loc[~assigned_mask, col_name] = else_block["segment"]
 
 //     return df
 
@@ -84,47 +89,162 @@
 //     "xyz": [40, 140, 160, 30, 200],
 //     "city": ["chennai", "mumbai", "delhi", "chennai", "bangalore"]
 // })
-
 // print(df)
-// logic_config = {
-//     "logic_blocks": [
-//         {
-//             "block_type": "IFELSE",
-//             "if": {
-//                 "rules": [
-//                     {"variable": "abc", "operator": ">", "value": "150", "logic": "AND"},
-//                     {"variable": "xyz", "operator": ">", "value": "150"}
-//                 ],
-//                 "segment": "very_high"
-//             },
-//             "elif": [
+// logic_config = [
+//     {
+//         "wind": {
+//             "logic_blocks": [
 //                 {
-//                     "rules": [
-//                         {"variable": "abc", "operator": ">", "value": "120", "logic": "AND"},
-//                         {"variable": "xyz", "operator": ">", "value": "120"}
+//                     "block_type": "IFELSE",
+//                     "if": {
+//                         "rules": [
+//                             {
+//                                 "variable": "abc",
+//                                 "operator": ">",
+//                                 "value": "150",
+//                                 "logic": "AND"
+//                             },
+//                             {
+//                                 "variable": "xyz",
+//                                 "operator": ">",
+//                                 "value": "150"
+//                             }
+//                         ],
+//                         "segment": "very_high"
+//                     },
+//                     "elif": [
+//                         {
+//                             "rules": [
+//                                 {
+//                                     "variable": "abc",
+//                                     "operator": ">",
+//                                     "value": "120",
+//                                     "logic": "AND"
+//                                 },
+//                                 {
+//                                     "variable": "xyz",
+//                                     "operator": ">",
+//                                     "value": "120"
+//                                 }
+//                             ],
+//                             "segment": "high"
+//                         },
+//                         {
+//                             "rules": [
+//                                 {
+//                                     "variable": "city",
+//                                     "operator": "==",
+//                                     "value": "chennai",
+//                                     "logic": "OR"
+//                                 },
+//                                 {
+//                                     "variable": "abc",
+//                                     "operator": "<",
+//                                     "value": "100"
+//                                 }
+//                             ],
+//                             "segment": "medium"
+//                         },
+//                         {
+//                             "rules": [
+//                                 {
+//                                     "variable": "xyz",
+//                                     "operator": "<",
+//                                     "value": "50"
+//                                 }
+//                             ],
+//                             "segment": "low_xyz"
+//                         }
 //                     ],
-//                     "segment": "high"
-//                 },
-//                 {
-//                     "rules": [
-//                         {"variable": "city", "operator": "==", "value": "chennai", "logic": "OR"},
-//                         {"variable": "abc", "operator": "<", "value": "100"}
-//                     ],
-//                     "segment": "medium"
-//                 },
-//                 {
-//                     "rules": [
-//                         {"variable": "xyz", "operator": "<", "value": "50"}
-//                     ],
-//                     "segment": "low_xyz"
+//                     "else": {
+//                         "segment": "default"
+//                     }
 //                 }
-//             ],
-//             "else": {
-//                 "segment": "default"
+//             ]
+//         }
+//     },
+//     {
+//         "coastal": {
+//             "logic_blocks": [
+//                 {
+//                     "block_type": "IFELSE",
+//                     "if": {
+//                         "rules": [
+//                             {
+//                                 "variable": "abc",
+//                                 "operator": ">",
+//                                 "value": "150",
+//                                 "logic": "AND"
+//                             },
+//                             {
+//                                 "variable": "xyz",
+//                                 "operator": ">",
+//                                 "value": "150"
+//                             }
+//                         ],
+//                         "segment": "very_high"
+//                     },
+//                     "elif": [
+//                         {
+//                             "rules": [
+//                                 {
+//                                     "variable": "abc",
+//                                     "operator": ">",
+//                                     "value": "120",
+//                                     "logic": "AND"
+//                                 },
+//                                 {
+//                                     "variable": "xyz",
+//                                     "operator": ">",
+//                                     "value": "120"
+//                                 }
+//                             ],
+//                             "segment": "high"
+//                         },
+//                         {
+//                             "rules": [
+//                                 {
+//                                     "variable": "city",
+//                                     "operator": "==",
+//                                     "value": "chennai",
+//                                     "logic": "OR"
+//                                 },
+//                                 {
+//                                     "variable": "abc",
+//                                     "operator": "<",
+//                                     "value": "100"
+//                                 }
+//                             ],
+//                             "segment": "medium"
+//                         },
+//                         {
+//                             "rules": [
+//                                 {
+//                                     "variable": "xyz",
+//                                     "operator": "<",
+//                                     "value": "50"
+//                                 }
+//                             ],
+//                             "segment": "low_xyz"
+//                         }
+//                     ],
+//                     "else": {
+//                         "segment": "default"
+//                     }
+//                 }
+//             ]
+//         }
+//     },
+//      {"river": {
+//             "logic_blocks": [
+//                 {
+//                     "block_type": "Nocondition",
+//                     "segment":"flood"
+//                 }]
 //             }
 //         }
-//     ]
-// }
-// result = apply_logic_blocks(df, logic_config)
+                
+// ]
+// result = apply_multi_logic(df, logic_config)
 
 // print(result)
