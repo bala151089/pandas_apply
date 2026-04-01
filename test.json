@@ -92,7 +92,7 @@ import pandas as pd
 // print(df)
 // logic_config = [
 //     {
-//         "wind": {
+//         "test1": {
 //             "logic_blocks": [
 //                 {
 //                     "block_type": "IFELSE",
@@ -164,7 +164,7 @@ import pandas as pd
 //         }
 //     },
 //     {
-//         "coastal": {
+//         "test2": {
 //             "logic_blocks": [
 //                 {
 //                     "block_type": "IFELSE",
@@ -235,11 +235,11 @@ import pandas as pd
 //             ]
 //         }
 //     },
-//      {"river": {
+//      {"test3": {
 //             "logic_blocks": [
 //                 {
 //                     "block_type": "Nocondition",
-//                     "segment":"flood"
+//                     "segment":"test"
 //                 }]
 //             }
 //         }
