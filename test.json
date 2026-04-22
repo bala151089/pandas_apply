@@ -207,3 +207,88 @@
 
 // # 👉 HTML
 // print(hazard_html['river_surface'])
+
+
+
+
+
+
+
+
+
+
+// import pandas as pd
+
+// def generate_report(df, balance_col):
+
+//     # =========================
+//     # Filter RCP columns
+//     # =========================
+//     rcp_cols = [c for c in df.columns if "_rcp" in c]
+//     df_filtered = df[['other', balance_col] + rcp_cols]
+
+//     # =========================
+//     # Melt
+//     # =========================
+//     df_melt = df_filtered.melt(
+//         id_vars=['other', balance_col],
+//         var_name='col',
+//         value_name='val'
+//     )
+
+//     # =========================
+//     # Extract year & rcp
+//     # =========================
+//     df_melt[['year', 'rcp']] = df_melt['col'].str.extract(
+//         r'(\d{4}).*rcp(\d+)'
+//     )
+
+//     # =========================
+//     # Category mapping
+//     # =========================
+//     category_map = {0: 'Un(0)', 1: 'In(1)', 2: 'In(2)'}
+//     df_melt['category'] = df_melt['val'].map(category_map)
+
+//     df_melt = df_melt.dropna(subset=['year', 'rcp', 'category'])
+
+//     # =========================
+//     # 🔥 Balance aggregation
+//     # =========================
+//     result = (
+//         df_melt
+//         .groupby(['rcp', 'year', 'category'], as_index=False)[balance_col]
+//         .sum()
+//     )
+
+//     # =========================
+//     # Percentage
+//     # =========================
+//     result['total'] = result.groupby(['rcp', 'year'])[balance_col].transform('sum')
+//     result['%'] = (result[balance_col] / result['total'] * 100).round(2)
+
+//     # =========================
+//     # Pivot
+//     # =========================
+//     final = result.pivot_table(
+//         index=['rcp', 'category'],
+//         columns='year',
+//         values=[balance_col, '%'],
+//         fill_value=0
+//     )
+
+//     # =========================
+//     # Ensure full structure
+//     # =========================
+//     categories = ['Un(0)', 'In(1)', 'In(2)']
+//     rcps = sorted(result['rcp'].unique())
+
+//     full_index = pd.MultiIndex.from_product([rcps, categories], names=['rcp', 'category'])
+
+//     final = (
+//         final
+//         .reindex(full_index)
+//         .fillna(0)
+//         .sort_index()
+//     )
+
+//     return final
