@@ -1,0 +1,75 @@
+// import pandas as pd
+
+// # =========================
+// # Load data
+// # =========================
+// df = pd.read_csv("input.csv")
+
+// # =========================
+// # Separate columns
+// # =========================
+// chn_cols = [c for c in df.columns if c.endswith('_chn')]
+// vp_cols = [c for c in df.columns if c.endswith('_vp')]
+
+// # Melt both
+// df_chn = df.melt(id_vars=['other'], value_vars=chn_cols,
+//                  var_name='col', value_name='category_val')
+
+// df_vp = df.melt(id_vars=['other'], value_vars=vp_cols,
+//                 var_name='col', value_name='value')
+
+// # =========================
+// # Extract year + rcp
+// # =========================
+// df_chn[['year', 'rcp']] = df_chn['col'].str.extract(r'(\d{4}).*rcp(\d+)')
+// df_vp[['year', 'rcp']] = df_vp['col'].str.extract(r'(\d{4}).*rcp(\d+)')
+
+// # =========================
+// # Merge chn + vp
+// # =========================
+// df_merge = pd.merge(
+//     df_chn[['other', 'year', 'rcp', 'category_val']],
+//     df_vp[['other', 'year', 'rcp', 'value']],
+//     on=['other', 'year', 'rcp'],
+//     how='inner'
+// )
+
+// # =========================
+// # Map category
+// # =========================
+// category_map = {0: 'Un(0)', 1: 'In(1)', 2: 'In(2)'}
+// df_merge['category'] = df_merge['category_val'].map(category_map)
+
+// df_merge = df_merge.dropna(subset=['category'])
+
+// # =========================
+// # Aggregate (SUM VP values)
+// # =========================
+// result = (
+//     df_merge
+//     .groupby(['rcp', 'year', 'category'], as_index=False)['value']
+//     .sum()
+// )
+
+// # =========================
+// # Percentage
+// # =========================
+// result['total'] = result.groupby(['rcp', 'year'])['value'].transform('sum')
+// result['%'] = (result['value'] / result['total'] * 100).round(2)
+
+// # =========================
+// # Pivot
+// # =========================
+// final = result.pivot_table(
+//     index=['rcp', 'category'],
+//     columns='year',
+//     values=['value', '%'],
+//     fill_value=0
+// )
+
+// # Flatten columns
+// final.columns = [f"{year}_{metric}" for metric, year in final.columns]
+
+// final = final.sort_index()
+
+// print(final)
