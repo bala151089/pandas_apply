@@ -1,68 +1,209 @@
 // import pandas as pd
 
-// # Load data
+// # =========================
+// # Step 1: Load Data
+// # =========================
 // df = pd.read_csv("input.csv")
 
-// # 🔥 Step 1: Pick only columns ending with '_chn'
-// chn_cols = [c for c in df.columns if c.endswith('_chn')]
+// # =========================
+// # Step 2: Filter required columns
+// # =========================
+// valid_cols = [c for c in df.columns if "_rrr" in c]
+// df_filtered = df[['other'] + valid_cols]
 
-// # Keep id column + required columns
-// df_filtered = df[['other'] + chn_cols]
-
-// # Melt
+// # =========================
+// # Step 3: Melt
+// # =========================
 // df_melt = df_filtered.melt(id_vars=['other'], var_name='col', value_name='val')
 
-// # Extract year & rcp
-// df_melt['year'] = df_melt['col'].str.extract(r'(\d{4})')
-// df_melt['rcp'] = df_melt['col'].str.extract(r'name(\d+)')
+// # =========================
+// # Step 4: Extract year, hazard, rrr
+// # =========================
+// df_melt[['year', 'hazard', 'rrr']] = df_melt['col'].str.extract(
+//     r'(\d{4})_(.*?)_rrr(\d+)_'
+// )
 
-// # Category mapping
+// # =========================
+// # Step 5: Category mapping
+// # =========================
 // category_map = {0: 'Un(0)', 1: 'In(1)', 2: 'In(2)'}
 // df_melt['category'] = df_melt['val'].map(category_map)
 
-// # Drop unwanted
-// df_melt = df_melt.dropna(subset=['category'])
+// df_melt = df_melt.dropna(subset=['year', 'rrr', 'hazard', 'category'])
 
-// # Group & count
-// result = (
-//     df_melt
-//     .groupby(['rcp', 'year', 'category'], as_index=False)
-//     .size()
-//     .rename(columns={'size': 'count'})
+// # =========================
+// # Step 6: Process per hazard
+// # =========================
+// hazard_dfs = {}
+// hazard_html = {}
+
+// for hazard in df_melt['hazard'].unique():
+
+//     temp = df_melt[df_melt['hazard'] == hazard]
+
+//     result = (
+//         temp
+//         .groupby(['rrr', 'year', 'category'], as_index=False)
+//         .size()
+//         .rename(columns={'size': 'count'})
+//     )
+
+//     result['total'] = result.groupby(['rrr', 'year'])['count'].transform('sum')
+//     result['%'] = (result['count'] / result['total'] * 100).round(2)
+
+//     all_categories = ['Un(0)', 'In(1)', 'In(2)']
+//     all_years = sorted(temp['year'].unique())
+//     all_rrr = sorted(temp['rrr'].unique())
+
+//     full_index = pd.MultiIndex.from_product(
+//         [all_rrr, all_categories, all_years],
+//         names=['rrr', 'category', 'year']
+//     )
+
+//     result = (
+//         result.set_index(['rrr', 'category', 'year'])
+//         .reindex(full_index, fill_value=0)
+//         .reset_index()
+//     )
+
+//     final_df = result.pivot_table(
+//         index=['rrr', 'category'],
+//         columns='year',
+//         values=['count', '%'],
+//         fill_value=0
+//     )
+
+//     final_df.columns = [f"{year}_{metric}" for metric, year in final_df.columns]
+//     final_df = final_df.sort_index()
+
+//     # ✅ Store DataFrame
+//     hazard_dfs[hazard] = final_df
+
+//     # ✅ Convert to HTML (IMPORTANT)
+//     hazard_html[hazard] = final_df.reset_index().to_html(
+//         index=False,
+//         border=1,
+//         classes="table table-bordered table-hover",
+//         na_rep="0"
+//     )
+
+// # =========================
+// # Access Results
+// # =========================
+
+// # 👉 DataFrame
+// print(hazard_dfs[''])
+
+// # 👉 HTML string
+// print(hazard_html[''])
+
+
+// import pandas as pd
+
+// # =========================
+// # Step 1: Load Data
+// # =========================
+// df = pd.read_csv("input.csv")
+
+// # =========================
+// # Step 2: Filter required columns
+// # =========================
+// valid_cols = [c for c in df.columns if "_rcp" in c]
+// df_filtered = df[['other'] + valid_cols]
+
+// # =========================
+// # Step 3: Melt
+// # =========================
+// df_melt = df_filtered.melt(id_vars=['other'], var_name='col', value_name='val')
+
+// # =========================
+// # Step 4: Extract year, hazard, rcp
+// # =========================
+// df_melt[['year', 'hazard', 'rcp']] = df_melt['col'].str.extract(
+//     r'(\d{4})_(.*?)_rcp(\d+)_'
 // )
 
-// # Percentage
-// result['total'] = result.groupby(['rcp', 'year'])['count'].transform('sum')
-// result['%'] = (result['count'] / result['total'] * 100).round(2)
+// # =========================
+// # Step 5: Category mapping
+// # =========================
+// category_map = {0: 'Un(0)', 1: 'In(1)', 2: 'In(2)'}
+// df_melt['category'] = df_melt['val'].map(category_map)
 
-// # Ensure all combinations exist
-// all_categories = ['Un(0)', 'In(1)', 'In(2)']
-// all_years = sorted(df_melt['year'].dropna().unique())
-// all_rcp = sorted(df_melt['rcp'].dropna().unique())
+// df_melt = df_melt.dropna(subset=['year', 'rcp', 'hazard', 'category'])
 
-// full_index = pd.MultiIndex.from_product(
-//     [all_rcp, all_categories, all_years],
-//     names=['rcp', 'category', 'year']
-// )
+// # =========================
+// # Step 6: Process per hazard
+// # =========================
+// hazard_dfs = {}
+// hazard_json = {}
+// hazard_html = {}
 
-// result = (
-//     result.set_index(['rcp', 'category', 'year'])
-//     .reindex(full_index, fill_value=0)
-//     .reset_index()
-// )
+// for hazard in df_melt['hazard'].unique():
 
-// # Pivot
-// final = result.pivot_table(
-//     index=['rcp', 'category'],
-//     columns='year',
-//     values=['count', '%'],
-//     fill_value=0
-// )
+//     temp = df_melt[df_melt['hazard'] == hazard]
 
-// # Flatten columns
-// final.columns = [f"{year}_{metric}" for metric, year in final.columns]
+//     # Group
+//     result = (
+//         temp
+//         .groupby(['rcp', 'year', 'category'], as_index=False)
+//         .size()
+//         .rename(columns={'size': 'count'})
+//     )
 
-// # Sort
-// final = final.sort_index()
+//     # Percentage
+//     result['total'] = result.groupby(['rcp', 'year'])['count'].transform('sum')
+//     result['%'] = (result['count'] / result['total'] * 100).round(2)
 
-// print(final)
+//     # Ensure all combinations exist
+//     all_categories = ['Un(0)', 'In(1)', 'In(2)']
+//     all_years = sorted(temp['year'].unique())
+//     all_rcp = sorted(temp['rcp'].unique())
+
+//     full_index = pd.MultiIndex.from_product(
+//         [all_rcp, all_categories, all_years],
+//         names=['rcp', 'category', 'year']
+//     )
+
+//     result = (
+//         result.set_index(['rcp', 'category', 'year'])
+//         .reindex(full_index, fill_value=0)
+//         .reset_index()
+//     )
+
+//     # Pivot
+//     final_df = result.pivot_table(
+//         index=['rcp', 'category'],
+//         columns='year',
+//         values=['count', '%'],
+//         fill_value=0
+//     )
+
+//     # Flatten columns
+//     final_df.columns = [f"{year}_{metric}" for metric, year in final_df.columns]
+//     final_df = final_df.sort_index()
+
+//     # =========================
+//     # Store Outputs
+//     # =========================
+
+//     # ✅ DataFrame
+//     hazard_dfs[hazard] = final_df
+
+//     # ✅ JSON (best for API)
+//     hazard_json[hazard] = final_df.reset_index().to_dict(orient="records")
+
+//     # ✅ HTML (optional UI)
+//     hazard_html[hazard] = final_df.reset_index().to_html(index=False)
+
+// # =========================
+// # Example Usage
+// # =========================
+
+// # 👉 DataFrame
+// print(hazard_dfs['river_surface'])
+
+// # 👉 JSON
+// print(hazard_json['river_surface'])
+
+// # 👉 HTML
+// print(hazard_html['river_surface'])
