@@ -1,19 +1,68 @@
-// def summarize_wind(df):
-//     total_count = len(df)
+// import pandas as pd
 
-//     summary = (
-//         df.groupby("wind")
-//           .agg(
-//               count=("wind", "count"),
-//               xyz_sum=("xyz", "sum")
-//           )
-//           .reset_index()
-//     )
+// # Load data
+// df = pd.read_csv("input.csv")
 
-//     # Calculate percentage
-//     summary["percentage"] = (summary["count"] / total_count * 100).round(0).astype(int).astype(str) + "%"
+// # 🔥 Step 1: Pick only columns ending with '_chn'
+// chn_cols = [c for c in df.columns if c.endswith('_chn')]
 
-//     # Reorder columns
-//     summary = summary[["wind", "count", "percentage", "xyz_sum"]]
+// # Keep id column + required columns
+// df_filtered = df[['other'] + chn_cols]
 
-//     return summary
+// # Melt
+// df_melt = df_filtered.melt(id_vars=['other'], var_name='col', value_name='val')
+
+// # Extract year & rcp
+// df_melt['year'] = df_melt['col'].str.extract(r'(\d{4})')
+// df_melt['rcp'] = df_melt['col'].str.extract(r'name(\d+)')
+
+// # Category mapping
+// category_map = {0: 'Un(0)', 1: 'In(1)', 2: 'In(2)'}
+// df_melt['category'] = df_melt['val'].map(category_map)
+
+// # Drop unwanted
+// df_melt = df_melt.dropna(subset=['category'])
+
+// # Group & count
+// result = (
+//     df_melt
+//     .groupby(['rcp', 'year', 'category'], as_index=False)
+//     .size()
+//     .rename(columns={'size': 'count'})
+// )
+
+// # Percentage
+// result['total'] = result.groupby(['rcp', 'year'])['count'].transform('sum')
+// result['%'] = (result['count'] / result['total'] * 100).round(2)
+
+// # Ensure all combinations exist
+// all_categories = ['Un(0)', 'In(1)', 'In(2)']
+// all_years = sorted(df_melt['year'].dropna().unique())
+// all_rcp = sorted(df_melt['rcp'].dropna().unique())
+
+// full_index = pd.MultiIndex.from_product(
+//     [all_rcp, all_categories, all_years],
+//     names=['rcp', 'category', 'year']
+// )
+
+// result = (
+//     result.set_index(['rcp', 'category', 'year'])
+//     .reindex(full_index, fill_value=0)
+//     .reset_index()
+// )
+
+// # Pivot
+// final = result.pivot_table(
+//     index=['rcp', 'category'],
+//     columns='year',
+//     values=['count', '%'],
+//     fill_value=0
+// )
+
+// # Flatten columns
+// final.columns = [f"{year}_{metric}" for metric, year in final.columns]
+
+// # Sort
+// final = final.sort_index()
+
+// print(final)
