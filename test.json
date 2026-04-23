@@ -1,31 +1,39 @@
 import pandas as pd
 
-# sample
+# sample df1
 df1 = pd.DataFrame({
-    "id": [1,2,3],
-    "a": [10,20,30],
-    "b": [100,200,300]
+    "id": [1, 2, 3],
+    "a": [10, 20, 30],
+    "b": ["x", "y", "z"],   # string column
+    "c": [1.5, 2.5, 3.5]    # float column
 })
 
+# sample df2
 df2 = pd.DataFrame({
-    "id": [1,2,3],
-    "a": [None,25,None],
-    "b": [110,None,330]
+    "id": [1, 2, 3],
+    "a": [None, 25, None],
+    "b": ["xx", None, "zz"]
 })
-
+print(df1,df2)
 # merge
-df = df1.merge(df2, on="id", how="left", suffixes=("_df1", "_df2"))
+df = df1.merge(df2, on="id", how="left", suffixes=("", "_df2"))
 
-# dynamically get common columns
-cols = list(set(df1.columns).intersection(df2.columns))
-cols.remove("id")
+# columns to update
+cols = [c for c in df2.columns if c != "id"]
 
-# apply logic
 for col in cols:
-    df[f"{col}_overwrite"] = df[f"{col}_df2"]   # from df2
-    df[col] = df[f"{col}_df2"].combine_first(df[f"{col}_df1"])  # final value
+    # create overwrite column
+    df[f"{col}_overwrite"] = df[f"{col}_df2"].combine_first(df[col])
 
-# final output
-out = df[["id"] + cols + [f"{c}_overwrite" for c in cols]]
+    # match dtype with df1 column
+    try:
+        df[f"{col}_overwrite"] = df[f"{col}_overwrite"].astype(df[col].dtype)
+    except:
+        # fallback if conversion fails (mixed types)
+        pass
 
-print(out)
+# drop helper columns
+df.drop(columns=[f"{c}_df2" for c in cols], inplace=True)
+
+print(df)
+print("\nDtypes:\n", df.dtypes)
