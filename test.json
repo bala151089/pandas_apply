@@ -1,294 +1,144 @@
-// import pandas as pd
-
-// # =========================
-// # Step 1: Load Data
-// # =========================
-// df = pd.read_csv("input.csv")
-
-// # =========================
-// # Step 2: Filter required columns
-// # =========================
-// valid_cols = [c for c in df.columns if "_rrr" in c]
-// df_filtered = df[['other'] + valid_cols]
-
-// # =========================
-// # Step 3: Melt
-// # =========================
-// df_melt = df_filtered.melt(id_vars=['other'], var_name='col', value_name='val')
-
-// # =========================
-// # Step 4: Extract year, hazard, rrr
-// # =========================
-// df_melt[['year', 'hazard', 'rrr']] = df_melt['col'].str.extract(
-//     r'(\d{4})_(.*?)_rrr(\d+)_'
-// )
-
-// # =========================
-// # Step 5: Category mapping
-// # =========================
-// category_map = {0: 'Un(0)', 1: 'In(1)', 2: 'In(2)'}
-// df_melt['category'] = df_melt['val'].map(category_map)
-
-// df_melt = df_melt.dropna(subset=['year', 'rrr', 'hazard', 'category'])
-
-// # =========================
-// # Step 6: Process per hazard
-// # =========================
-// hazard_dfs = {}
-// hazard_html = {}
-
-// for hazard in df_melt['hazard'].unique():
-
-//     temp = df_melt[df_melt['hazard'] == hazard]
-
-//     result = (
-//         temp
-//         .groupby(['rrr', 'year', 'category'], as_index=False)
-//         .size()
-//         .rename(columns={'size': 'count'})
-//     )
-
-//     result['total'] = result.groupby(['rrr', 'year'])['count'].transform('sum')
-//     result['%'] = (result['count'] / result['total'] * 100).round(2)
-
-//     all_categories = ['Un(0)', 'In(1)', 'In(2)']
-//     all_years = sorted(temp['year'].unique())
-//     all_rrr = sorted(temp['rrr'].unique())
-
-//     full_index = pd.MultiIndex.from_product(
-//         [all_rrr, all_categories, all_years],
-//         names=['rrr', 'category', 'year']
-//     )
-
-//     result = (
-//         result.set_index(['rrr', 'category', 'year'])
-//         .reindex(full_index, fill_value=0)
-//         .reset_index()
-//     )
-
-//     final_df = result.pivot_table(
-//         index=['rrr', 'category'],
-//         columns='year',
-//         values=['count', '%'],
-//         fill_value=0
-//     )
-
-//     final_df.columns = [f"{year}_{metric}" for metric, year in final_df.columns]
-//     final_df = final_df.sort_index()
-
-//     # ✅ Store DataFrame
-//     hazard_dfs[hazard] = final_df
-
-//     # ✅ Convert to HTML (IMPORTANT)
-//     hazard_html[hazard] = final_df.reset_index().to_html(
-//         index=False,
-//         border=1,
-//         classes="table table-bordered table-hover",
-//         na_rep="0"
-//     )
-
-// # =========================
-// # Access Results
-// # =========================
-
-// # 👉 DataFrame
-// print(hazard_dfs[''])
-
-// # 👉 HTML string
-// print(hazard_html[''])
-
-
-// import pandas as pd
-
-// # =========================
-// # Step 1: Load Data
-// # =========================
-// df = pd.read_csv("input.csv")
-
-// # =========================
-// # Step 2: Filter required columns
-// # =========================
-// valid_cols = [c for c in df.columns if "_rcp" in c]
-// df_filtered = df[['other'] + valid_cols]
-
-// # =========================
-// # Step 3: Melt
-// # =========================
-// df_melt = df_filtered.melt(id_vars=['other'], var_name='col', value_name='val')
-
-// # =========================
-// # Step 4: Extract year, hazard, rcp
-// # =========================
-// df_melt[['year', 'hazard', 'rcp']] = df_melt['col'].str.extract(
-//     r'(\d{4})_(.*?)_rcp(\d+)_'
-// )
-
-// # =========================
-// # Step 5: Category mapping
-// # =========================
-// category_map = {0: 'Un(0)', 1: 'In(1)', 2: 'In(2)'}
-// df_melt['category'] = df_melt['val'].map(category_map)
-
-// df_melt = df_melt.dropna(subset=['year', 'rcp', 'hazard', 'category'])
-
-// # =========================
-// # Step 6: Process per hazard
-// # =========================
-// hazard_dfs = {}
-// hazard_json = {}
-// hazard_html = {}
-
-// for hazard in df_melt['hazard'].unique():
-
-//     temp = df_melt[df_melt['hazard'] == hazard]
-
-//     # Group
-//     result = (
-//         temp
-//         .groupby(['rcp', 'year', 'category'], as_index=False)
-//         .size()
-//         .rename(columns={'size': 'count'})
-//     )
-
-//     # Percentage
-//     result['total'] = result.groupby(['rcp', 'year'])['count'].transform('sum')
-//     result['%'] = (result['count'] / result['total'] * 100).round(2)
-
-//     # Ensure all combinations exist
-//     all_categories = ['Un(0)', 'In(1)', 'In(2)']
-//     all_years = sorted(temp['year'].unique())
-//     all_rcp = sorted(temp['rcp'].unique())
-
-//     full_index = pd.MultiIndex.from_product(
-//         [all_rcp, all_categories, all_years],
-//         names=['rcp', 'category', 'year']
-//     )
-
-//     result = (
-//         result.set_index(['rcp', 'category', 'year'])
-//         .reindex(full_index, fill_value=0)
-//         .reset_index()
-//     )
-
-//     # Pivot
-//     final_df = result.pivot_table(
-//         index=['rcp', 'category'],
-//         columns='year',
-//         values=['count', '%'],
-//         fill_value=0
-//     )
-
-//     # Flatten columns
-//     final_df.columns = [f"{year}_{metric}" for metric, year in final_df.columns]
-//     final_df = final_df.sort_index()
-
-//     # =========================
-//     # Store Outputs
-//     # =========================
-
-//     # ✅ DataFrame
-//     hazard_dfs[hazard] = final_df
-
-//     # ✅ JSON (best for API)
-//     hazard_json[hazard] = final_df.reset_index().to_dict(orient="records")
-
-//     # ✅ HTML (optional UI)
-//     hazard_html[hazard] = final_df.reset_index().to_html(index=False)
-
-// # =========================
-// # Example Usage
-// # =========================
-
-// # 👉 DataFrame
-// print(hazard_dfs['river_surface'])
-
-// # 👉 JSON
-// print(hazard_json['river_surface'])
-
-// # 👉 HTML
-// print(hazard_html['river_surface'])
-
-
-
-
-
-
-
-
-
-
-// import pandas as pd
-
-// def generate_report(df, balance_col):
-
-//     # =========================
-//     # Filter RCP columns
-//     # =========================
-//     rcp_cols = [c for c in df.columns if "_rcp" in c]
-//     df_filtered = df[['other', balance_col] + rcp_cols]
-
-//     # =========================
-//     # Melt
-//     # =========================
-//     df_melt = df_filtered.melt(
-//         id_vars=['other', balance_col],
-//         var_name='col',
-//         value_name='val'
-//     )
-
-//     # =========================
-//     # Extract year & rcp
-//     # =========================
-//     df_melt[['year', 'rcp']] = df_melt['col'].str.extract(
-//         r'(\d{4}).*rcp(\d+)'
-//     )
-
-//     # =========================
-//     # Category mapping
-//     # =========================
-//     category_map = {0: 'Un(0)', 1: 'In(1)', 2: 'In(2)'}
-//     df_melt['category'] = df_melt['val'].map(category_map)
-
-//     df_melt = df_melt.dropna(subset=['year', 'rcp', 'category'])
-
-//     # =========================
-//     # 🔥 Balance aggregation
-//     # =========================
-//     result = (
-//         df_melt
-//         .groupby(['rcp', 'year', 'category'], as_index=False)[balance_col]
-//         .sum()
-//     )
-
-//     # =========================
-//     # Percentage
-//     # =========================
-//     result['total'] = result.groupby(['rcp', 'year'])[balance_col].transform('sum')
-//     result['%'] = (result[balance_col] / result['total'] * 100).round(2)
-
-//     # =========================
-//     # Pivot
-//     # =========================
-//     final = result.pivot_table(
-//         index=['rcp', 'category'],
-//         columns='year',
-//         values=[balance_col, '%'],
-//         fill_value=0
-//     )
-
-//     # =========================
-//     # Ensure full structure
-//     # =========================
-//     categories = ['Un(0)', 'In(1)', 'In(2)']
-//     rcps = sorted(result['rcp'].unique())
-
-//     full_index = pd.MultiIndex.from_product([rcps, categories], names=['rcp', 'category'])
-
-//     final = (
-//         final
-//         .reindex(full_index)
-//         .fillna(0)
-//         .sort_index()
-//     )
-
-//     return final
+import pandas as pd
+import numpy as np
+
+def process(df, persons=None):
+
+    id_col = "unique_id"
+
+    # ----------- FORMAT BALANCE -----------
+    def format_balance(num):
+        if pd.isna(num):
+            return num
+        abs_num = abs(num)
+
+        if abs_num >= 1e12:
+            return f"{num/1e12:.2f}T"
+        elif abs_num >= 1e9:
+            return f"{num/1e9:.2f}B"
+        elif abs_num >= 1e6:
+            return f"{num/1e6:.2f}M"
+        elif abs_num >= 1e3:
+            return f"{num/1e3:.2f}K"
+        else:
+            return f"{num:.2f}"
+
+    # ----------- CHN DATA -----------
+    chn_cols = [c for c in df.columns if c.endswith("_chn")]
+
+    df_chn = df.melt(
+        id_vars=[id_col, "Balance"],
+        value_vars=chn_cols,
+        var_name="key",
+        value_name="category"
+    )
+
+    df_chn[["year", "person", "rcp"]] = df_chn["key"].str.extract(
+        r"(\d{4})_(.*?)_rcp(\d+)_chn"
+    )
+
+    if persons:
+        df_chn = df_chn[df_chn["person"].isin(persons)]
+
+    cat_map = {0: "Un(0)", 1: "In(1)", 2: "In(2)"}
+    df_chn["category"] = df_chn["category"].map(cat_map)
+
+    # ----------- COUNT -----------
+    count_df = (
+        df_chn.groupby(["person", "rcp", "year", "category"])
+        .size()
+        .reset_index(name="count")
+    )
+
+    count_df["%"] = count_df.groupby(
+        ["person", "rcp", "year"]
+    )["count"].transform(lambda x: (x / x.sum()) * 100)
+
+    # ----------- BALANCE -----------
+    bal_df = (
+        df_chn.groupby(["person", "rcp", "year", "category"])
+        .agg(balance=("Balance", "sum"))
+        .reset_index()
+    )
+
+    bal_df["%"] = bal_df.groupby(
+        ["person", "rcp", "year"]
+    )["balance"].transform(lambda x: (x / x.sum()) * 100)
+
+    # 🔥 FORMAT BALANCE HERE
+    bal_df["balance"] = bal_df["balance"].apply(format_balance)
+
+    return count_df, bal_df
+
+def to_nested_dict(count_df, bal_df, persons=None):
+
+    if not persons:
+        persons = sorted(count_df["person"].unique())
+
+    rcps = sorted(count_df["rcp"].unique())
+    years = sorted(count_df["year"].unique())
+    categories = ["Un(0)", "In(1)", "In(2)"]
+
+    result = {}
+
+    for person in persons:
+        result[person] = {}
+
+        # -------- COUNT BLOCK --------
+        result[person]["count"] = {}
+
+        for rcp in rcps:
+            result[person]["count"][rcp] = {}
+
+            for cat in categories:
+                result[person]["count"][rcp][cat] = {}
+
+                for year in years:
+                    temp = count_df[
+                        (count_df.person == person) &
+                        (count_df.rcp == rcp) &
+                        (count_df.year == year) &
+                        (count_df.category == cat)
+                    ]
+
+                    if not temp.empty:
+                        row = temp.iloc[0]
+                        result[person]["count"][rcp][cat][year] = {
+                            "count": int(row["count"]),
+                            "%": round(row["%"], 2)
+                        }
+                    else:
+                        result[person]["count"][rcp][cat][year] = {
+                            "count": 0,
+                            "%": 0
+                        }
+
+        # -------- BALANCE BLOCK --------
+        result[person]["balance"] = {}
+
+        for rcp in rcps:
+            result[person]["balance"][rcp] = {}
+
+            for cat in categories:
+                result[person]["balance"][rcp][cat] = {}
+
+                for year in years:
+                    temp = bal_df[
+                        (bal_df.person == person) &
+                        (bal_df.rcp == rcp) &
+                        (bal_df.year == year) &
+                        (bal_df.category == cat)
+                    ]
+
+                    if not temp.empty:
+                        row = temp.iloc[0]
+                        result[person]["balance"][rcp][cat][year] = {
+                            "balance": row["balance"],
+                            "%": round(row["%"], 2)
+                        }
+                    else:
+                        result[person]["balance"][rcp][cat][year] = {
+                            "balance": "0.00",
+                            "%": 0
+                        }
+
+    return result
