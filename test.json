@@ -1,73 +1,31 @@
+import pandas as pd
 
-def to_nested_dict(count_df, bal_df, persons=None):
+# sample
+df1 = pd.DataFrame({
+    "id": [1,2,3],
+    "a": [10,20,30],
+    "b": [100,200,300]
+})
 
-    if not persons:
-        persons = sorted(count_df["person"].unique())
+df2 = pd.DataFrame({
+    "id": [1,2,3],
+    "a": [None,25,None],
+    "b": [110,None,330]
+})
 
-    rcps = sorted(count_df["rcp"].unique())
-    years = sorted(count_df["year"].unique())
-    categories = ["Un(0)", "In(1)", "In(2)"]
+# merge
+df = df1.merge(df2, on="id", how="left", suffixes=("_df1", "_df2"))
 
-    result = {}
+# dynamically get common columns
+cols = list(set(df1.columns).intersection(df2.columns))
+cols.remove("id")
 
-    for person in persons:
-        result[person] = {
-            "count": {},
-            "balance": {}
-        }
+# apply logic
+for col in cols:
+    df[f"{col}_overwrite"] = df[f"{col}_df2"]   # from df2
+    df[col] = df[f"{col}_df2"].combine_first(df[f"{col}_df1"])  # final value
 
-        # -------- COUNT --------
-        for year in years:
-            result[person]["count"][year] = {}
+# final output
+out = df[["id"] + cols + [f"{c}_overwrite" for c in cols]]
 
-            for rcp in rcps:
-                result[person]["count"][year][rcp] = {}
-
-                for cat in categories:
-                    temp = count_df[
-                        (count_df.person == person) &
-                        (count_df.rcp == rcp) &
-                        (count_df.year == year) &
-                        (count_df.category == cat)
-                    ]
-
-                    if not temp.empty:
-                        row = temp.iloc[0]
-                        result[person]["count"][year][rcp][cat] = {
-                            "count": int(row["count"]),
-                            "%": float(round(row["%"], 2))
-                        }
-                    else:
-                        result[person]["count"][year][rcp][cat] = {
-                            "count": 0,
-                            "%": 0.0
-                        }
-
-        # -------- BALANCE --------
-        for year in years:
-            result[person]["balance"][year] = {}
-
-            for rcp in rcps:
-                result[person]["balance"][year][rcp] = {}
-
-                for cat in categories:
-                    temp = bal_df[
-                        (bal_df.person == person) &
-                        (bal_df.rcp == rcp) &
-                        (bal_df.year == year) &
-                        (bal_df.category == cat)
-                    ]
-
-                    if not temp.empty:
-                        row = temp.iloc[0]
-                        result[person]["balance"][year][rcp][cat] = {
-                            "balance": row["balance"],   # already formatted
-                            "%": float(round(row["%"], 2))
-                        }
-                    else:
-                        result[person]["balance"][year][rcp][cat] = {
-                            "balance": "0.00",
-                            "%": 0.0
-                        }
-
-    return result
+print(out)
