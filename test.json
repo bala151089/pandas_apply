@@ -1,73 +1,3 @@
-import pandas as pd
-import numpy as np
-
-def process(df, persons=None):
-
-    id_col = "unique_id"
-
-    # ----------- FORMAT BALANCE -----------
-    def format_balance(num):
-        if pd.isna(num):
-            return num
-        abs_num = abs(num)
-
-        if abs_num >= 1e12:
-            return f"{num/1e12:.2f}T"
-        elif abs_num >= 1e9:
-            return f"{num/1e9:.2f}B"
-        elif abs_num >= 1e6:
-            return f"{num/1e6:.2f}M"
-        elif abs_num >= 1e3:
-            return f"{num/1e3:.2f}K"
-        else:
-            return f"{num:.2f}"
-
-    # ----------- CHN DATA -----------
-    chn_cols = [c for c in df.columns if c.endswith("_chn")]
-
-    df_chn = df.melt(
-        id_vars=[id_col, "Balance"],
-        value_vars=chn_cols,
-        var_name="key",
-        value_name="category"
-    )
-
-    df_chn[["year", "person", "rcp"]] = df_chn["key"].str.extract(
-        r"(\d{4})_(.*?)_rcp(\d+)_chn"
-    )
-
-    if persons:
-        df_chn = df_chn[df_chn["person"].isin(persons)]
-
-    cat_map = {0: "Un(0)", 1: "In(1)", 2: "In(2)"}
-    df_chn["category"] = df_chn["category"].map(cat_map)
-
-    # ----------- COUNT -----------
-    count_df = (
-        df_chn.groupby(["person", "rcp", "year", "category"])
-        .size()
-        .reset_index(name="count")
-    )
-
-    count_df["%"] = count_df.groupby(
-        ["person", "rcp", "year"]
-    )["count"].transform(lambda x: (x / x.sum()) * 100)
-
-    # ----------- BALANCE -----------
-    bal_df = (
-        df_chn.groupby(["person", "rcp", "year", "category"])
-        .agg(balance=("Balance", "sum"))
-        .reset_index()
-    )
-
-    bal_df["%"] = bal_df.groupby(
-        ["person", "rcp", "year"]
-    )["balance"].transform(lambda x: (x / x.sum()) * 100)
-
-    # 🔥 FORMAT BALANCE HERE
-    bal_df["balance"] = bal_df["balance"].apply(format_balance)
-
-    return count_df, bal_df
 
 def to_nested_dict(count_df, bal_df, persons=None):
 
@@ -81,18 +11,19 @@ def to_nested_dict(count_df, bal_df, persons=None):
     result = {}
 
     for person in persons:
-        result[person] = {}
+        result[person] = {
+            "count": {},
+            "balance": {}
+        }
 
-        # -------- COUNT BLOCK --------
-        result[person]["count"] = {}
+        # -------- COUNT --------
+        for year in years:
+            result[person]["count"][year] = {}
 
-        for rcp in rcps:
-            result[person]["count"][rcp] = {}
+            for rcp in rcps:
+                result[person]["count"][year][rcp] = {}
 
-            for cat in categories:
-                result[person]["count"][rcp][cat] = {}
-
-                for year in years:
+                for cat in categories:
                     temp = count_df[
                         (count_df.person == person) &
                         (count_df.rcp == rcp) &
@@ -102,26 +33,24 @@ def to_nested_dict(count_df, bal_df, persons=None):
 
                     if not temp.empty:
                         row = temp.iloc[0]
-                        result[person]["count"][rcp][cat][year] = {
+                        result[person]["count"][year][rcp][cat] = {
                             "count": int(row["count"]),
-                            "%": round(row["%"], 2)
+                            "%": float(round(row["%"], 2))
                         }
                     else:
-                        result[person]["count"][rcp][cat][year] = {
+                        result[person]["count"][year][rcp][cat] = {
                             "count": 0,
-                            "%": 0
+                            "%": 0.0
                         }
 
-        # -------- BALANCE BLOCK --------
-        result[person]["balance"] = {}
+        # -------- BALANCE --------
+        for year in years:
+            result[person]["balance"][year] = {}
 
-        for rcp in rcps:
-            result[person]["balance"][rcp] = {}
+            for rcp in rcps:
+                result[person]["balance"][year][rcp] = {}
 
-            for cat in categories:
-                result[person]["balance"][rcp][cat] = {}
-
-                for year in years:
+                for cat in categories:
                     temp = bal_df[
                         (bal_df.person == person) &
                         (bal_df.rcp == rcp) &
@@ -131,14 +60,14 @@ def to_nested_dict(count_df, bal_df, persons=None):
 
                     if not temp.empty:
                         row = temp.iloc[0]
-                        result[person]["balance"][rcp][cat][year] = {
-                            "balance": row["balance"],
-                            "%": round(row["%"], 2)
+                        result[person]["balance"][year][rcp][cat] = {
+                            "balance": row["balance"],   # already formatted
+                            "%": float(round(row["%"], 2))
                         }
                     else:
-                        result[person]["balance"][rcp][cat][year] = {
+                        result[person]["balance"][year][rcp][cat] = {
                             "balance": "0.00",
-                            "%": 0
+                            "%": 0.0
                         }
 
     return result
