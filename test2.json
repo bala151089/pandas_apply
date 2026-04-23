@@ -1,75 +1,147 @@
-// import pandas as pd
+// def process(df, persons=None):
+//     id_col = "unique_id"
+//     balance_col = "Balance"
 
-// # =========================
-// # Load data
-// # =========================
-// df = pd.read_csv("input.csv")
+//     # Step 1: CHN columns
+//     chn_cols = [c for c in df.columns if c.endswith("_chn")]
 
-// # =========================
-// # Separate columns
-// # =========================
-// chn_cols = [c for c in df.columns if c.endswith('_chn')]
-// vp_cols = [c for c in df.columns if c.endswith('_vp')]
+//     df_chn = df.melt(
+//         id_vars=[id_col, balance_col],
+//         value_vars=chn_cols,
+//         var_name="key",
+//         value_name="category"
+//     )
 
-// # Melt both
-// df_chn = df.melt(id_vars=['other'], value_vars=chn_cols,
-//                  var_name='col', value_name='category_val')
+//     # Extract metadata
+//     pattern = r"(\d{4})_(.*?)_rcp(\d+)_(chn)"
+//     df_chn[["year", "person", "rcp", "type"]] = df_chn["key"].str.extract(pattern)
 
-// df_vp = df.melt(id_vars=['other'], value_vars=vp_cols,
-//                 var_name='col', value_name='value')
+//     # 🔥 Filter persons (if provided)
+//     if persons:
+//         df_chn = df_chn[df_chn["person"].isin(persons)]
 
-// # =========================
-// # Extract year + rcp
-// # =========================
-// df_chn[['year', 'rcp']] = df_chn['col'].str.extract(r'(\d{4}).*rcp(\d+)')
-// df_vp[['year', 'rcp']] = df_vp['col'].str.extract(r'(\d{4}).*rcp(\d+)')
+//     # Category mapping
+//     cat_map = {0: "Un(0)", 1: "In(1)", 2: "In(2)"}
+//     df_chn["category_label"] = df_chn["category"].map(cat_map)
 
-// # =========================
-// # Merge chn + vp
-// # =========================
-// df_merge = pd.merge(
-//     df_chn[['other', 'year', 'rcp', 'category_val']],
-//     df_vp[['other', 'year', 'rcp', 'value']],
-//     on=['other', 'year', 'rcp'],
-//     how='inner'
-// )
+//     # Count aggregation
+//     count_df = (
+//         df_chn
+//         .groupby(["person", "rcp", "year", "category_label"])
+//         .size()
+//         .reset_index(name="count")
+//     )
 
-// # =========================
-// # Map category
-// # =========================
-// category_map = {0: 'Un(0)', 1: 'In(1)', 2: 'In(2)'}
-// df_merge['category'] = df_merge['category_val'].map(category_map)
+//     count_df["%"] = count_df.groupby(
+//         ["person", "rcp", "year"]
+//     )["count"].transform(lambda x: (x / x.sum()) * 100)
 
-// df_merge = df_merge.dropna(subset=['category'])
+//     # Step 2: VP columns
+//     vp_cols = [c for c in df.columns if c.endswith("_vp")]
 
-// # =========================
-// # Aggregate (SUM VP values)
-// # =========================
-// result = (
-//     df_merge
-//     .groupby(['rcp', 'year', 'category'], as_index=False)['value']
-//     .sum()
-// )
+//     df_vp = df.melt(
+//         id_vars=[id_col],
+//         value_vars=vp_cols,
+//         var_name="key",
+//         value_name="vp_value"
+//     )
 
-// # =========================
-// # Percentage
-// # =========================
-// result['total'] = result.groupby(['rcp', 'year'])['value'].transform('sum')
-// result['%'] = (result['value'] / result['total'] * 100).round(2)
+//     pattern_vp = r"(\d{4})_(.*?)_rcp(\d+)_(vp)"
+//     df_vp[["year", "person", "rcp", "type"]] = df_vp["key"].str.extract(pattern_vp)
 
-// # =========================
-// # Pivot
-// # =========================
-// final = result.pivot_table(
-//     index=['rcp', 'category'],
-//     columns='year',
-//     values=['value', '%'],
-//     fill_value=0
-// )
+//     # 🔥 Filter persons (same here)
+//     if persons:
+//         df_vp = df_vp[df_vp["person"].isin(persons)]
 
-// # Flatten columns
-// final.columns = [f"{year}_{metric}" for metric, year in final.columns]
+//     # Merge
+//     df_merge = df_chn.merge(
+//         df_vp,
+//         on=[id_col, "year", "person", "rcp"],
+//         how="left"
+//     )
 
-// final = final.sort_index()
+//     # Balance aggregation
+//     bal_df = (
+//         df_merge
+//         .groupby(["person", "rcp", "year", "category_label"])
+//         .agg(balance=("vp_value", "sum"))
+//         .reset_index()
+//     )
 
-// print(final)
+//     bal_df["%"] = bal_df.groupby(
+//         ["person", "rcp", "year"]
+//     )["balance"].transform(lambda x: (x / x.sum()) * 100)
+
+//     return count_df, bal_df
+
+
+
+
+
+
+
+
+
+
+
+// def to_nested_dict(count_df, bal_df, persons=None):
+//     result = {}
+
+//     # 🔥 Use passed persons OR fallback to data
+//     if not persons:
+//         persons = sorted(count_df["person"].dropna().unique())
+
+//     rcps = sorted(count_df["rcp"].dropna().unique())
+//     years = sorted(count_df["year"].dropna().unique())
+
+//     ALL_CATEGORIES = ["Un(0)", "In(1)", "In(2)"]
+
+//     for person in persons:
+//         result[person] = {
+//             "count": {},
+//             "balance": {}
+//         }
+
+//         # COUNT
+//         for rcp in rcps:
+//             result[person]["count"][rcp] = {}
+
+//             for year in years:
+//                 temp = count_df[
+//                     (count_df.person == person) &
+//                     (count_df.rcp == rcp) &
+//                     (count_df.year == year)
+//                 ]
+
+//                 cat_dict = {c: {"count": 0, "%": 0} for c in ALL_CATEGORIES}
+
+//                 for _, row in temp.iterrows():
+//                     cat_dict[row["category_label"]] = {
+//                         "count": int(row["count"]),
+//                         "%": round(row["%"], 2)
+//                     }
+
+//                 result[person]["count"][rcp][year] = cat_dict
+
+//         # BALANCE
+//         for rcp in rcps:
+//             result[person]["balance"][rcp] = {}
+
+//             for year in years:
+//                 temp = bal_df[
+//                     (bal_df.person == person) &
+//                     (bal_df.rcp == rcp) &
+//                     (bal_df.year == year)
+//                 ]
+
+//                 cat_dict = {c: {"balance": 0, "%": 0} for c in ALL_CATEGORIES}
+
+//                 for _, row in temp.iterrows():
+//                     cat_dict[row["category_label"]] = {
+//                         "balance": float(row["balance"]),
+//                         "%": round(row["%"], 2)
+//                     }
+
+//                 result[person]["balance"][rcp][year] = cat_dict
+
+//     return result
