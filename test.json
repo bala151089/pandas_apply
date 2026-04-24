@@ -1,32 +1,115 @@
 
-def test(df1,df2):
-    # sample df1
-    df1 = pd.DataFrame({
-        "id": [1, 2, 3],
-        "id2": [101, 102, 103],
-        "a": [10, 20, 30],
-        "b": ["x", "y", "z"]
-    })
+def process(df, persons=None):
 
-    # sample df2
-    df2 = pd.DataFrame({
-        "id": [1, 2, 3],
-        "a": [None, 25, None],
-        "b": ["xx", None, "zz"]
-    })
+    id_col = "unique_id"
 
-    # ensure unique mapping
-    df2 = df2.drop_duplicates(subset="id")
+    # ----------- CHN (category) -----------
+    chn_cols = [c for c in df.columns if c.endswith("_chn")]
 
-    df2_indexed = df2.set_index("id")
+    df_chn = df.melt(
+        id_vars=[id_col],
+        value_vars=chn_cols,
+        var_name="key",
+        value_name="category"
+    )
 
-    # only columns from df2 (exclude id)
-    cols = [c for c in df2.columns if c != "id"]
+    df_chn[["year", "person", "rcp"]] = df_chn["key"].str.extract(
+        r"(\d{4})_(.+?)_rcp(\d+)"
+    )
 
-    for col in cols:
-        mapped = df1["id"].map(df2_indexed[col])
+    # ----------- VP (values) -----------
+    vp_cols = [c for c in df.columns if c.endswith("_vp")]
 
-        # ✅ create NEW column (do NOT overwrite original)
-        df1[f"{col}_overwrite"] = mapped.combine_first(df1[col])
+    df_vp = df.melt(
+        id_vars=[id_col],
+        value_vars=vp_cols,
+        var_name="key",
+        value_name="vp"
+    )
 
-    print(df1)
+    df_vp[["year", "person", "rcp"]] = df_vp["key"].str.extract(
+        r"(\d{4})_(.+?)_rcp(\d+)"
+    )
+
+    # ----------- MERGE -----------
+    df_all = df_chn.merge(
+        df_vp,
+        on=[id_col, "year", "person", "rcp"],
+        how="left"
+    )
+
+    if persons:
+        df_all = df_all[df_all["person"].isin(persons)]
+
+    # ----------- CATEGORY LABEL -----------
+    cat_map = {0: "Un(0)", 1: "In(1)", 2: "In(2)"}
+    df_all["category"] = df_all["category"].map(cat_map)
+
+    # ----------- AGGREGATION -----------
+    agg = (
+        df_all.groupby(["person", "rcp", "year", "category"])
+        .agg(sum_vp=("vp", "sum"))
+        .reset_index()
+    )
+
+    agg["%"] = agg.groupby(
+        ["person", "rcp", "year"]
+    )["sum_vp"].transform(lambda x: (x / x.sum()) * 100)
+
+    # clean float
+    agg["%"] = agg["%"].round(2).astype(float)
+
+    return agg
+def to_nested_dict(agg_df, persons=None):
+
+    if not persons:
+        persons = sorted(agg_df["person"].unique())
+
+    rcps = sorted(agg_df["rcp"].unique())
+    years = sorted(agg_df["year"].unique())
+    categories = ["Un(0)", "In(1)", "In(2)"]
+
+    # 🔥 helper for readable numbers
+    def format_value(num):
+        if num >= 1e9:
+            return f"{num/1e9:.2f}B"
+        elif num >= 1e6:
+            return f"{num/1e6:.2f}M"
+        elif num >= 1e3:
+            return f"{num/1e3:.2f}K"
+        else:
+            return str(int(num))
+
+    result = {}
+
+    for year in years:
+        result[year] = {}
+
+        for person in persons:
+            result[year][person] = {}
+
+            for rcp in rcps:
+                result[year][person][rcp] = {}
+
+                for cat in categories:
+                    temp = agg_df[
+                        (agg_df.person == person) &
+                        (agg_df.rcp == rcp) &
+                        (agg_df.year == year) &
+                        (agg_df.category == cat)
+                    ]
+
+                    if not temp.empty:
+                        row = temp.iloc[0]
+
+                        result[year][person][rcp][cat] = {
+                            "sum_vp": format_value(int(row["sum_vp"])),   # readable
+                            "%": round(float(row["%"]), 2)                # clean float
+                        }
+                    else:
+                        result[year][person][rcp][cat] = {
+                            "sum_vp": "0",
+                            "%": 0.0
+                        }
+
+    return result
