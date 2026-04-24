@@ -1,46 +1,41 @@
 import pandas as pd
+def test1():
+# df1
+    df1 = pd.DataFrame({
+        "id": [1, 2, 3],
+        "id2": [101, 102, 103],   # another unique column
+        "a": [10, 20, 30],
+        "b": ["x", "y", "z"]
+    })
 
-# sample df1 (large dataset)
-df1 = pd.DataFrame({
-    "id": [1, 2, 3],
-    "a": [10, 20, 30],
-    "b": ["x", "y", "z"],
-    "c": [1.5, 2.5, 3.5]
-})
+    # df2
+    df2 = pd.DataFrame({
+        "id": [1, 2, 3],
+        "a": [None, 25, None],
+        "b": ["xx", None, "zz"]
+    })
 
-# sample df2 (only columns to overwrite)
-df2 = pd.DataFrame({
-    "id": [1, 2, 3],
-    "a": [None, 25, None],
-    "b": ["xx", None, "zz"]
-})
+    # -------------------------------
+    # 🔥 SAFE APPROACH (NO MERGE)
+    # -------------------------------
 
-# -------------------------------
-# 🔥 OPTIMIZED LOGIC (NO MERGE)
-# -------------------------------
+    # ensure unique id in df2
+    df2 = df2.drop_duplicates(subset="id")
 
-# set index once (important for performance)
-df2_indexed = df2.set_index("id")
+    df2_indexed = df2.set_index("id")
 
-# get only columns from df2 (excluding id)
-cols = [c for c in df2.columns if c != "id"]
+    cols = [c for c in df2.columns if c != "id"]
 
-for col in cols:
-    # map values from df2 based on id
-    mapped = df1["id"].map(df2_indexed[col])
+    for col in cols:
+        mapped = df1["id"].map(df2_indexed[col])
 
-    # create overwrite column:
-    # df2 value if exists else df1 value
-    df1[f"{col}_overwrite"] = mapped.combine_first(df1[col])
+        # overwrite column
+        df1[f"{col}_overwrite"] = mapped.combine_first(df1[col])
 
-    # keep same dtype as original column
-    try:
-        df1[f"{col}_overwrite"] = df1[f"{col}_overwrite"].astype(df1[col].dtype)
-    except:
-        pass  # fallback for mixed/object types
+        # keep same dtype
+        try:
+            df1[f"{col}_overwrite"] = df1[f"{col}_overwrite"].astype(df1[col].dtype)
+        except:
+            pass
 
-# -------------------------------
-# RESULT
-# -------------------------------
-print(df1)
-print("\nDtypes:\n", df1.dtypes)
+    print(df1)
