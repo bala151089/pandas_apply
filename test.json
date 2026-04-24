@@ -1,39 +1,46 @@
 import pandas as pd
 
-# sample df1
+# sample df1 (large dataset)
 df1 = pd.DataFrame({
     "id": [1, 2, 3],
     "a": [10, 20, 30],
-    "b": ["x", "y", "z"],   # string column
-    "c": [1.5, 2.5, 3.5]    # float column
+    "b": ["x", "y", "z"],
+    "c": [1.5, 2.5, 3.5]
 })
 
-# sample df2
+# sample df2 (only columns to overwrite)
 df2 = pd.DataFrame({
     "id": [1, 2, 3],
     "a": [None, 25, None],
     "b": ["xx", None, "zz"]
 })
-print(df1,df2)
-# merge
-df = df1.merge(df2, on="id", how="left", suffixes=("", "_df2"))
 
-# columns to update
+# -------------------------------
+# 🔥 OPTIMIZED LOGIC (NO MERGE)
+# -------------------------------
+
+# set index once (important for performance)
+df2_indexed = df2.set_index("id")
+
+# get only columns from df2 (excluding id)
 cols = [c for c in df2.columns if c != "id"]
 
 for col in cols:
-    # create overwrite column
-    df[f"{col}_overwrite"] = df[f"{col}_df2"].combine_first(df[col])
+    # map values from df2 based on id
+    mapped = df1["id"].map(df2_indexed[col])
 
-    # match dtype with df1 column
+    # create overwrite column:
+    # df2 value if exists else df1 value
+    df1[f"{col}_overwrite"] = mapped.combine_first(df1[col])
+
+    # keep same dtype as original column
     try:
-        df[f"{col}_overwrite"] = df[f"{col}_overwrite"].astype(df[col].dtype)
+        df1[f"{col}_overwrite"] = df1[f"{col}_overwrite"].astype(df1[col].dtype)
     except:
-        # fallback if conversion fails (mixed types)
-        pass
+        pass  # fallback for mixed/object types
 
-# drop helper columns
-df.drop(columns=[f"{c}_df2" for c in cols], inplace=True)
-
-print(df)
-print("\nDtypes:\n", df.dtypes)
+# -------------------------------
+# RESULT
+# -------------------------------
+print(df1)
+print("\nDtypes:\n", df1.dtypes)
