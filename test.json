@@ -1,41 +1,32 @@
-import pandas as pd
-def test1():
-# df1
+
+def test(df1,df2):
+    # sample df1
     df1 = pd.DataFrame({
         "id": [1, 2, 3],
-        "id2": [101, 102, 103],   # another unique column
+        "id2": [101, 102, 103],
         "a": [10, 20, 30],
         "b": ["x", "y", "z"]
     })
 
-    # df2
+    # sample df2
     df2 = pd.DataFrame({
         "id": [1, 2, 3],
         "a": [None, 25, None],
         "b": ["xx", None, "zz"]
     })
 
-    # -------------------------------
-    # 🔥 SAFE APPROACH (NO MERGE)
-    # -------------------------------
-
-    # ensure unique id in df2
+    # ensure unique mapping
     df2 = df2.drop_duplicates(subset="id")
 
     df2_indexed = df2.set_index("id")
 
+    # only columns from df2 (exclude id)
     cols = [c for c in df2.columns if c != "id"]
 
     for col in cols:
         mapped = df1["id"].map(df2_indexed[col])
 
-        # overwrite column
+        # ✅ create NEW column (do NOT overwrite original)
         df1[f"{col}_overwrite"] = mapped.combine_first(df1[col])
-
-        # keep same dtype
-        try:
-            df1[f"{col}_overwrite"] = df1[f"{col}_overwrite"].astype(df1[col].dtype)
-        except:
-            pass
 
     print(df1)
