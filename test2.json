@@ -1,180 +1,46 @@
-import pandas as pd
-import numpy as np
+def create_pivot_tables(count_df, bal_df, persons=None):
 
-def process(df, persons=None, style="global"):
-    id_col = "unique_id"
-
-    # ---------------- CHN ----------------
-    chn_cols = [c for c in df.columns if c.endswith("_chn")]
-
-    df_chn = df.melt(
-        id_vars=[id_col],
-        value_vars=chn_cols,
-        var_name="key",
-        value_name="category"
-    )
-
-    pattern = r"(\d{4})_(.*?)_rcp(\d+)_(chn)"
-    df_chn[["year", "person", "rcp", "type"]] = df_chn["key"].str.extract(pattern)
-
-    if persons:
-        df_chn = df_chn[df_chn["person"].isin(persons)]
-
-    # Category mapping
-    cat_map = {0: "Un(0)", 1: "In(1)", 2: "In(2)"}
-    df_chn["category_label"] = df_chn["category"].map(cat_map)
-
-    # ---------------- COUNT ----------------
-    count_df = (
-        df_chn
-        .groupby(["person", "rcp", "year", "category_label"])
-        .size()
-        .reset_index(name="count")
-    )
-
-    count_df["%"] = count_df.groupby(
-        ["person", "rcp", "year"]
-    )["count"].transform(lambda x: (x / x.sum()) * 100)
-
-    # ---------------- VP ----------------
-    vp_cols = [c for c in df.columns if c.endswith("_vp")]
-
-    df_vp = df.melt(
-        id_vars=[id_col],
-        value_vars=vp_cols,
-        var_name="key",
-        value_name="vp_value"
-    )
-
-    pattern_vp = r"(\d{4})_(.*?)_rcp(\d+)_(vp)"
-    df_vp[["year", "person", "rcp", "type"]] = df_vp["key"].str.extract(pattern_vp)
-
-    if persons:
-        df_vp = df_vp[df_vp["person"].isin(persons)]
-
-    # ---------------- MERGE ----------------
-    df_merge = df_chn.merge(
-        df_vp,
-        on=[id_col, "year", "person", "rcp"],
-        how="left"
-    )
-
-    # ---------------- BALANCE ----------------
-    bal_df = (
-        df_merge
-        .groupby(["person", "rcp", "year", "category_label"])
-        .agg(balance=("vp_value", "sum"))
-        .reset_index()
-    )
-
-    # % calculation on RAW values
-    bal_df["%"] = bal_df.groupby(
-        ["person", "rcp", "year"]
-    )["balance"].transform(lambda x: (x / x.sum()) * 100)
-
-    # Keep raw balance (important)
-    bal_df["balance_raw"] = bal_df["balance"]
-
-    # ---------------- 🔥 FORMAT BALANCE ----------------
-    def format_balance(num):
-        if pd.isna(num):
-            return num
-
-        abs_num = abs(num)
-
-        if style == "indian":
-            if abs_num >= 1e7:
-                return f"{num/1e7:.2f}Cr"
-            elif abs_num >= 1e5:
-                return f"{num/1e5:.2f}L"
-            elif abs_num >= 1e3:
-                return f"{num/1e3:.2f}K"
-            else:
-                return f"{num:.2f}"
-        else:
-            if abs_num >= 1e12:
-                return f"{num/1e12:.2f}T"
-            elif abs_num >= 1e9:
-                return f"{num/1e9:.2f}B"
-            elif abs_num >= 1e6:
-                return f"{num/1e6:.2f}M"
-            elif abs_num >= 1e3:
-                return f"{num/1e3:.2f}K"
-            else:
-                return f"{num:.2f}"
-
-    # 🔥 overwrite balance column
-    bal_df["balance"] = bal_df["balance"].apply(format_balance)
-
-    return count_df, bal_df
-
-
-def to_nested_dict(count_df, bal_df, persons=None):
-    result = {}
-
-    # Use passed persons OR fallback
     if not persons:
         persons = sorted(count_df["person"].dropna().unique())
 
-    rcps = sorted(count_df["rcp"].dropna().unique())
-    years = sorted(count_df["year"].dropna().unique())
-
-    ALL_CATEGORIES = ["Un(0)", "In(1)", "In(2)"]
+    result = {}
 
     for person in persons:
+
+        # ------------------ COUNT PIVOT ------------------
+        cdf = count_df[count_df["person"] == person].copy()
+
+        count_pivot = pd.pivot_table(
+            cdf,
+            index=["rcp", "category_label"],
+            columns="year",
+            values=["count", "%"],
+            aggfunc="sum",
+            fill_value=0
+        )
+
+        # reorder columns → (year -> count, %)
+        count_pivot = count_pivot.swaplevel(0, 1, axis=1)
+        count_pivot = count_pivot.sort_index(axis=1)
+
+        # ------------------ BALANCE PIVOT ------------------
+        bdf = bal_df[bal_df["person"] == person].copy()
+
+        bal_pivot = pd.pivot_table(
+            bdf,
+            index=["rcp", "category_label"],
+            columns="year",
+            values=["balance", "%"],
+            aggfunc="sum",
+            fill_value=0
+        )
+
+        bal_pivot = bal_pivot.swaplevel(0, 1, axis=1)
+        bal_pivot = bal_pivot.sort_index(axis=1)
+
         result[person] = {
-            "count": {},
-            "balance": {}
+            "count_pivot": count_pivot,
+            "balance_pivot": bal_pivot
         }
 
-        # ---------------- COUNT ----------------
-        for rcp in rcps:
-            result[person]["count"][rcp] = {}
-
-            for year in years:
-                temp = count_df[
-                    (count_df.person == person) &
-                    (count_df.rcp == rcp) &
-                    (count_df.year == year)
-                ]
-
-                # default structure
-                cat_dict = {
-                    c: {"count": 0, "%": 0}
-                    for c in ALL_CATEGORIES
-                }
-
-                for _, row in temp.iterrows():
-                    cat_dict[row["category_label"]] = {
-                        "count": int(row["count"]),
-                        "%": round(row["%"], 2)
-                    }
-
-                result[person]["count"][rcp][year] = cat_dict
-
-        # ---------------- BALANCE ----------------
-        for rcp in rcps:
-            result[person]["balance"][rcp] = {}
-
-            for year in years:
-                temp = bal_df[
-                    (bal_df.person == person) &
-                    (bal_df.rcp == rcp) &
-                    (bal_df.year == year)
-                ]
-
-                cat_dict = {
-                    c: {"balance": "0.00", "%": 0}
-                    for c in ALL_CATEGORIES
-                }
-
-                for _, row in temp.iterrows():
-                    cat_dict[row["category_label"]] = {
-                        "balance": row["balance"],   # 🔥 already formatted (2.5T)
-                        "%": round(row["%"], 2)
-                    }
-
-                result[person]["balance"][rcp][year] = cat_dict
-
     return result
-
